@@ -115,4 +115,5 @@ func processEmptyInterface(i interface{}) {
 	default:
 		fmt.Println("unknown")
 	}
+	fmt.Println("----------")
 }
