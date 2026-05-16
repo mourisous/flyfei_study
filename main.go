@@ -1,118 +1,87 @@
 package main
 
 import (
-	"fmt"
+	"log"
+	"net/http"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
-type Payment interface {
-	Pay(amount float64) (string, error)
-	Refund(transactionID string, amount float64) (string, error)
+type Student struct {
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
+	Age   int    `json:"age"`
+	Grade int    `json:"grade"`
 }
 
-type Queryer interface {
-	Query(transactionID string) (string, error)
+var students = []Student{
+	{
+		ID:    1,
+		Name:  "Zhang San",
+		Age:   18,
+		Grade: 1,
+	},
+	{
+		ID:    2,
+		Name:  "Li Si",
+		Age:   19,
+		Grade: 2,
+	},
 }
 
-type PaymentService interface {
-	Payment
-	Queryer
-}
+func loggingMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		start := time.Now()
 
-type Alipay struct {
-	AppID      string
-	AppSecret  string
-	MerchantID string
-}
+		c.Next()
 
-func (a Alipay) Pay(amount float64) (string, error) {
-	return fmt.Sprintf("ALIPAY-%d", time.Now().Unix()), nil
-}
-
-func (a Alipay) Refund(transactionID string, amount float64) (string, error) {
-	return fmt.Sprintf("ALIPAY-REFUND-%s", transactionID), nil
-}
-
-func (a Alipay) Query(transactionID string) (string, error) {
-	return "Alipay 成功", nil
-}
-
-type WechatPay struct {
-	AppID      string
-	AppSecret  string
-	MerchantID string
-}
-
-func (a WechatPay) Pay(amount float64) (string, error) {
-	return fmt.Sprintf("WECHAT-%d", time.Now().Unix()), nil
-}
-
-func (a WechatPay) Refund(transactionID string, amount float64) (string, error) {
-	return fmt.Sprintf("WECHAT-REFUND-%s", transactionID), nil
-}
-
-func (a WechatPay) Query(transactionID string) (string, error) {
-	return "Wechat 成功", nil
-}
-
-// 抽象 多态
-func ProcessPayment(p PaymentService, amount float64) (string, error) {
-	fmt.Println("开始处理支付请求....")
-	transcationID, err := p.Pay(amount)
-	if err != nil {
-		return "", err
+		log.Printf("%s %s ip=%s status=%d duration=%v",
+			c.Request.Method,
+			c.Request.URL.Path,
+			c.ClientIP(),
+			c.Writer.Status(),
+			time.Since(start),
+		)
 	}
-	fmt.Printf("支付成功，交易号：%s\n", transcationID)
-	return transcationID, nil
+}
+
+func authMiddleware() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if c.GetHeader("Authorization") != "Bearer 123456" {
+			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
+				"message": "unauthorized",
+			})
+			return
+		}
+
+		c.Next()
+	}
+}
+
+func getStudentInfo(c *gin.Context) {
+	time.Sleep(2 * time.Second)
+	c.JSON(http.StatusOK, students[0])
 }
 
 func main() {
-	alipay := Alipay{
-		AppID:      "123456",
-		AppSecret:  "dsfasdfasdf",
-		MerchantID: "123",
-	}
-	wechatPay := WechatPay{
-		AppID:      "0987654",
-		AppSecret:  "dfasdfasdfadsf",
-		MerchantID: "321",
-	}
+	router := gin.New()
+	router.Use(gin.Recovery())
+	router.Use(loggingMiddleware())
 
-	transcations := []struct {
-		Payment PaymentService
-		Amount  float64
-		Name    string
-	}{
-		{alipay, 100, "支付宝"},
-		{wechatPay, 200, "微信"},
+	router.GET("/ping", func(c *gin.Context) {
+		c.JSON(http.StatusOK, gin.H{
+			"message": "pong",
+		})
+	})
+
+	studentGroup := router.Group("/students")
+	studentGroup.Use(authMiddleware())
+	{
+		studentGroup.GET("/info", getStudentInfo)
 	}
 
-	for _, pp := range transcations {
-		transcationID, err := ProcessPayment(pp.Payment, pp.Amount)
-		if err != nil {
-			fmt.Printf("支付失败，错误信息：%s\n", err.Error())
-			continue
-		}
-		fmt.Printf("ProcessPayment  支付成功，交易号：%s\n", transcationID)
-	}
-
-	var anything interface{}
-	processEmptyInterface(anything)
-	anything = 123
-	processEmptyInterface(anything)
-	anything = "hello world"
-	processEmptyInterface(anything)
-
-}
-
-func processEmptyInterface(i interface{}) {
-	switch v := i.(type) {
-	case int:
-		fmt.Println("int:", v)
-	case string:
-		ss := i.(string)
-		fmt.Println("string:", ss)
-	default:
-		fmt.Println("unknown")
+	if err := router.Run(":8080"); err != nil {
+		log.Fatal(err)
 	}
 }

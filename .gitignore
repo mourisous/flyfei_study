@@ -1,17 +1,17 @@
-# Binaries for programs and plugins
+bin/
+pkg/
 *.exe
-*.exe~
-*.dll
-*.so
-*.dylib
-
-# Test binary, built with `go test -c`
 *.test
 
-# Output of the go coverage tool, specifically when used with LiteIDE
-*.out
+# 依赖管理
+vendor/
 
-# Dependency directories (remove the comment below to include it)
-# vendor/
-.idea/*
-.venv
+# 编辑器文件
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# 系统文件
+.DS_Store
+Thumbs.db
