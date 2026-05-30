@@ -1,87 +1,90 @@
 package main
 
 import (
-	"log"
-	"net/http"
-	"time"
+	"errors"
+	"mall/adaptor"
+	"mall/config"
+	"mall/router"
+	"mall/utils/logger"
 
-	"github.com/gin-gonic/gin"
+	"github.com/go-redis/redis"
+	"github.com/samber/lo"
+	"gorm.io/driver/mysql"
+	"gorm.io/gorm"
 )
 
-type Student struct {
-	ID    int    `json:"id"`
-	Name  string `json:"name"`
-	Age   int    `json:"age"`
-	Grade int    `json:"grade"`
-}
-
-var students = []Student{
-	{
-		ID:    1,
-		Name:  "Zhang San",
-		Age:   18,
-		Grade: 1,
-	},
-	{
-		ID:    2,
-		Name:  "Li Si",
-		Age:   19,
-		Grade: 2,
-	},
-}
-
-func loggingMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		start := time.Now()
-
-		c.Next()
-
-		log.Printf("%s %s ip=%s status=%d duration=%v",
-			c.Request.Method,
-			c.Request.URL.Path,
-			c.ClientIP(),
-			c.Writer.Status(),
-			time.Since(start),
-		)
-	}
-}
-
-func authMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		if c.GetHeader("Authorization") != "Bearer 123456" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
-				"message": "unauthorized",
-			})
-			return
-		}
-
-		c.Next()
-	}
-}
-
-func getStudentInfo(c *gin.Context) {
-	time.Sleep(2 * time.Second)
-	c.JSON(http.StatusOK, students[0])
-}
-
 func main() {
-	router := gin.New()
-	router.Use(gin.Recovery())
-	router.Use(loggingMiddleware())
+	conf := config.InitConfig()
+	logger.SetLevel(conf.Server.LogLevel)
 
-	router.GET("/ping", func(c *gin.Context) {
-		c.JSON(http.StatusOK, gin.H{
-			"message": "pong",
-		})
+	dbClient, err := initMysql(&conf.Mysql)
+	handleErr(err)
+	logger.Debug("mysql connect success")
+
+	rdsClient, err := initRedis(&conf.Redis)
+	handleErr(err)
+	logger.Debug("client connect success")
+
+	startServer(conf, dbClient, rdsClient).Run()
+}
+
+func startServer(conf *config.Config, db *gorm.DB, redis *redis.Client) *router.App {
+	return router.NewApp(conf.Server.HttpPort,
+		router.NewRouter(
+			conf,
+			adaptor.NewAdaptor(conf, db, redis),
+			func() error {
+				err := func() error {
+					pingDb, err := db.DB()
+					handleErr(err)
+					return pingDb.Ping()
+				}()
+				if err != nil {
+					return errors.New("mysql connect failed")
+				}
+				return redis.Ping().Err()
+			},
+		),
+	)
+}
+
+func initRedis(conf *config.Redis) (*redis.Client, error) {
+	client := redis.NewClient(&redis.Options{
+		Addr:         conf.Addr,
+		Password:     conf.PWD,
+		DB:           conf.DBIndex,
+		MinIdleConns: conf.MaxIdle,
+		PoolSize:     conf.MaxOpen,
 	})
+	if r, _ := client.Ping().Result(); r != "PONG" {
+		return nil, errors.New("redis connect failed")
+	}
+	return client, nil
+}
 
-	studentGroup := router.Group("/students")
-	studentGroup.Use(authMiddleware())
-	{
-		studentGroup.GET("/info", getStudentInfo)
+func initMysql(conf *config.Mysql) (*gorm.DB, error) {
+	conf.MaxIdle = lo.Max([]int{conf.MaxIdle + 1, 5})
+	conf.MaxOpen = lo.Max([]int{conf.MaxOpen + 1, 10})
+	dsn := conf.GetDsn()
+	db, err := gorm.Open(mysql.Open(dsn))
+	if err != nil {
+		return nil, err
+	}
+	sqlDB, err := db.DB()
+	if err != nil {
+		return nil, err
+	}
+	if err = sqlDB.Ping(); err != nil {
+		return nil, err
 	}
 
-	if err := router.Run(":8080"); err != nil {
-		log.Fatal(err)
+	sqlDB.SetMaxIdleConns(conf.MaxIdle)
+	sqlDB.SetMaxOpenConns(conf.MaxOpen)
+	return db, nil
+}
+
+func handleErr(err error) {
+	if err != nil {
+		panic(err)
 	}
 }
