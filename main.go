@@ -1,13 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"mall/adaptor"
 	"mall/config"
 	"mall/router"
 	"mall/utils/logger"
 
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 	"github.com/samber/lo"
 	"gorm.io/driver/mysql"
 	"gorm.io/gorm"
@@ -42,7 +43,7 @@ func startServer(conf *config.Config, db *gorm.DB, redis *redis.Client) *router.
 				if err != nil {
 					return errors.New("mysql connect failed")
 				}
-				return redis.Ping().Err()
+				return redis.Ping(context.Background()).Err()
 			},
 		),
 	)
@@ -56,7 +57,7 @@ func initRedis(conf *config.Redis) (*redis.Client, error) {
 		MinIdleConns: conf.MaxIdle,
 		PoolSize:     conf.MaxOpen,
 	})
-	if r, _ := client.Ping().Result(); r != "PONG" {
+	if r, _ := client.Ping(context.Background()).Result(); r != "PONG" {
 		return nil, errors.New("redis connect failed")
 	}
 	return client, nil

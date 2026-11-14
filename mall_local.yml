@@ -9,16 +9,16 @@ mysql:
   dialect: mysql
   user: root
   password: 123456
-  host: 192.168.200.111
+  host: 127.0.0.1
   port: 3306
-  database: edu_mall
+  database: edu.mall
   charset: utf8mb4
   show_mysql: true
   max_open: 20
   max_idle: 5
 
 redis:
-  addr: 192.168.200.111:6379
+  addr: 127.0.0.1:6379
   password: ""
   db_index: 0
   max_idle: 2

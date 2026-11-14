@@ -3,6 +3,8 @@ package router
 import (
 	"context"
 	"fmt"
+	"github.com/gin-gonic/gin"
+	"go.uber.org/zap"
 	"log"
 	"mall/utils/logger"
 	"net/http"
@@ -11,9 +13,6 @@ import (
 	"strconv"
 	"syscall"
 	"time"
-
-	"github.com/gin-gonic/gin"
-	"go.uber.org/zap"
 )
 
 type App struct {

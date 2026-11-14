@@ -3,13 +3,12 @@ package config
 import (
 	"flag"
 	"fmt"
-	"os"
-	"time"
-
 	"github.com/goccy/go-yaml"
-	"github.com/gogf/gf/util/gconv"
+	"github.com/gogf/gf/v2/util/gconv"
 	"github.com/spf13/viper"
 	_ "github.com/spf13/viper/remote"
+	"os"
+	"time"
 )
 
 const (
@@ -50,17 +49,17 @@ type Mysql struct {
 	MaxIdle  int    `yaml:"max_idle"`
 }
 
+func (m *Mysql) GetDsn() string {
+	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=true&loc=Local",
+		m.User, m.Password, m.Host, m.Port, m.Database, m.Charset)
+}
+
 type Redis struct {
 	Addr    string `yaml:"addr"`
 	PWD     string `yaml:"password"`
 	DBIndex int    `yaml:"db_index"`
 	MaxIdle int    `yaml:"max_idle"`
 	MaxOpen int    `yaml:"max_open"`
-}
-
-func (m *Mysql) GetDsn() string {
-	return fmt.Sprintf("%s:%s@tcp(%s:%d)/%s?charset=%s&parseTime=true&loc=Local",
-		m.User, m.Password, m.Host, m.Port, m.Database, m.Charset)
 }
 
 func init() {

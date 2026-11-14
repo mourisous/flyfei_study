@@ -2,15 +2,14 @@ package admin
 
 import (
 	"context"
+	"github.com/redis/go-redis/v9"
+	"gorm.io/gorm"
 	"mall/adaptor"
 	"mall/adaptor/repo/model"
 	"mall/adaptor/repo/query"
 	"mall/consts"
 	"mall/service/do"
 	"time"
-
-	"github.com/go-redis/redis"
-	"gorm.io/gorm"
 )
 
 type IAdminUser interface {

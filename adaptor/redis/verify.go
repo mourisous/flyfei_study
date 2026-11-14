@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 	"fmt"
-	"github.com/go-redis/redis"
+	"github.com/redis/go-redis/v9"
 	"mall/adaptor"
 	"mall/config"
 	"time"
@@ -35,27 +35,30 @@ func fmtVerifyCaptchaTicket(key string) string {
 }
 func (v *Verify) SetCaptchaKey(ctx context.Context, key string, value string, expire time.Duration) error {
 	redisKey := fmtVerifyCaptchaKey(key)
-	return v.redis.Set(redisKey, value, expire).Err()
+	return v.redis.Set(ctx, redisKey, value, expire).Err()
 }
+
 func (v *Verify) GetCaptchaKey(ctx context.Context, key string) (string, error) {
 	redisKey := fmtVerifyCaptchaKey(key)
-	get, err := v.redis.Get(redisKey).Result()
+	get, err := v.redis.Get(ctx, redisKey).Result()
 	if err != nil {
 		return "", err
 	}
-	v.redis.Del(redisKey)
+	v.redis.Del(ctx, redisKey)
 	return get, nil
 }
+
 func (v *Verify) SetCaptchaTicket(ctx context.Context, key string, value string, expire time.Duration) error {
 	redisKey := fmtVerifyCaptchaTicket(key)
-	return v.redis.Set(redisKey, value, expire).Err()
+	return v.redis.Set(ctx, redisKey, value, expire).Err()
 }
+
 func (v *Verify) GetCaptchaTicket(ctx context.Context, key string) (string, error) {
 	redisKey := fmtVerifyCaptchaTicket(key)
-	get, err := v.redis.Get(redisKey).Result()
+	get, err := v.redis.Get(ctx, redisKey).Result()
 	if err != nil {
 		return "", err
 	}
-	v.redis.Del(redisKey)
+	v.redis.Del(ctx, redisKey)
 	return get, nil
 }
